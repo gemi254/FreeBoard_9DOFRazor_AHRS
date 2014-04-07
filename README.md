@@ -11,12 +11,10 @@ Upload the project with an FDTI adapter and connect to the serial port
 with speed 38400 
 
 send..
-#FBF 
-to return to razor mode 
-and then..
-#on 
-to begin calibration
+"#FBF" -> to return to razor mode 
+"#on"  -> to begin calibration
 
-then use #define CALIBRATION__MAGN_USE_EXTENDED true to re-compile the file 
+ Dollow the steps needed and at the end
+use #define CALIBRATION__MAGN_USE_EXTENDED true to re-compile the file 
 with the calibration data.
 */
