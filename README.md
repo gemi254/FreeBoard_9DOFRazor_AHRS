@@ -1,7 +1,10 @@
 FreeBoard_9DOFRazor_AHRS
 ========================
 
-Freeboard 9 Degree of Measurement Heading Reference System with 9DOF Razor IMU
+Freeboard 9 Degrees of freedom 
+Measurement Heading Reference System with 9DOF Razor IMU
+This code transforms a Razor IMU to a NMEA Measurement Heading Reference System
+to use it with navigation software like freeboard and opencp.
 
 Compile this file and upload the binarry file to a
 9 Degrees of Freedom - Razor IMU - https://www.sparkfun.com/products/10736
@@ -19,4 +22,7 @@ use
 "#define CALIBRATION__MAGN_USE_EXTENDED true"
 and  re-compile the file with the calibration data.
 Upload the hex file and connect Razor IMU with the freeboard..
+
+https://github.com/rob42/freeboard-server
+
 
