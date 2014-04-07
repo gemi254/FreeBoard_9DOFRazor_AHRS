@@ -14,7 +14,9 @@ send..
 "#FBF" -> to return to razor mode 
 "#on"  -> to begin calibration
 
- Dollow the steps needed and at the end
-use #define CALIBRATION__MAGN_USE_EXTENDED true to re-compile the file 
-with the calibration data.
-*/
+Follow the steps needed to complete the calibtration and at the end
+use 
+"#define CALIBRATION__MAGN_USE_EXTENDED true"
+and  re-compile the file with the calibration data.
+Upload the hex file and connect Razor IMU with the freeboard..
+
