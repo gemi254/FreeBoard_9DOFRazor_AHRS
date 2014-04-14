@@ -4,7 +4,7 @@ Freeboard 9 Degrees of freedom Measurement Heading Reference System with 9DOF Ra
 This code transforms a Razor IMU to a NMEA Measurement Heading Reference System to use 
 it with navigation software like freeboard and opencpn.
 
-Compile this file and upload the binarry file to a
+Compile this file using arduino IDE and upload the binarry file to a
 9 Degrees of Freedom - Razor IMU - https://www.sparkfun.com/products/10736
 in order to use it as Heading reference system with NMEA sentences
 
