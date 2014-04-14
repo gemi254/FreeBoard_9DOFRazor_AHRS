@@ -25,5 +25,5 @@ uncomment
 "#define CALIBRATION__MAGN_USE_EXTENDED true"
 and  re-compile the file with the calibration data.
 
-Upload the hex file and connect Razor IMU with the freeboard..
+Upload the hex file and connect Razor IMU with the freeboard via USB port..
 
