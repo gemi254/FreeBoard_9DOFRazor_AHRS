@@ -12,7 +12,7 @@ then use #define CALIBRATION__MAGN_USE_EXTENDED true to re-compile the file
 with the calibration data
 */
  
-*//***************************************************************************************************************
+/*//***************************************************************************************************************
  * Razor AHRS Firmware v1.4.2
  * 9 Degree of Measurement Attitude and Heading Reference System
  * for Sparkfun "9DOF Razor IMU" (SEN-10125 and SEN-10736)
@@ -133,6 +133,7 @@ with the calibration data
  One frame consist of three 3x3 float values = 36 bytes. Order is: acc x/y/z, mag x/y/z, gyr x/y/z.
  "#osbb" - Output BOTH raw and calibrated SENSOR data of all 9 axes in BINARY format.
  One frame consist of 2x36 = 72 bytes - like #osrb and #oscb combined (first RAW, then CALIBRATED).
+ #FBF
  
  // Error message output        
  "#oe0" - Disable ERROR message output.
@@ -595,6 +596,16 @@ void serialEvent() {
         //inputSerialComplete = true;
 	char carray[inputSerial.length() + 1]; //determine size of the array
 	inputSerial.toCharArray(carray, sizeof(carray));
+        char bf[4];
+	memcpy(bf, &inputSerial[0], 4);
+        bf[3]='\0';
+        //Serial.print("bf:"); Serial.println(bf);
+        if( (strcmp(bf, "#ob") == 0) ){ //return to razor mode on command starting #o
+              output_mode = OUTPUT__MODE_ANGLES;
+              inputSerial = "";
+              Serial.println("Razor command detected. Changing to razor mode");
+              return;
+        }
 	freeboard_process(carray, ',');
 	inputSerial = "";
 	//inputSerialComplete = false;
@@ -673,10 +684,9 @@ void loop()
     if (Serial.read() == '#') // Start of new control message
     {
       int command = Serial.read(); // Commands
+      //if(DEBUG) Serial.print("Command"); Serial.println(command);
       if (command == 'f') // request one output _f_rame
         output_single_on = true;
-      else if (command == 'f'){  // freeboard command        
-      }
       else if (command == 's') // _s_ynch request
       {
         // Read ID
@@ -729,7 +739,6 @@ void loop()
             output_mode = OUTPUT__MODE_SENSORS_CALIB;
           else if (values_param == 'b')  // Output _b_oth sensor values (raw and calibrated)
             output_mode = OUTPUT__MODE_SENSORS_BOTH;
-
           if (format_param == 't') // Output values as _t_text
             output_format = OUTPUT__FORMAT_TEXT;
           else if (format_param == 'b') // Output values in _b_inary format

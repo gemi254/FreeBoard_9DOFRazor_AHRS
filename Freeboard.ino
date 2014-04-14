@@ -5,6 +5,7 @@
 #include <EEPROM.h>
 #include <AverageList.h>
 #include <FlexiTimer2.h>
+#include <EEPROMAnything.h>
 
 /**mag declination*/
 #define DECL  "DEC"
@@ -17,10 +18,12 @@
 #define FREEBOARD_ON "#FBX"
 #define NMEA_OFF "#NMO"
 #define FREEBOARD_OFF "#FBO"
+
 #define FREEBOARD_MODE_OFF "#FBF"  //Free board mode off. Return to 9DOF razor mode
 
 #define FREEIMU_EEPROM_BASE 0x0A
 #define FREEIMU_EEPROM_SIGNATURE 0x19
+
 const bool DEBUG=true;
 volatile boolean execute = false;
 volatile int interval = 0;
@@ -32,8 +35,13 @@ volatile int interval = 0;
 //float yprm[4]; // yaw, pitch, roll, mag heading
 char str[256];
 //float val[9];
-float declination = 0.01;
-float align = 145.0;
+struct config_t
+{
+  byte  signature;
+  float declination;
+  float align;
+} conf = {0, 0.2f, 145.0f};
+
 bool raw_out=false;
 bool nmea_out=true;
 bool freeboard_out=true;
@@ -62,17 +70,29 @@ void calculate() {
 
 void freeboard_setup()
 {
+  Serial.println("Read config from eeprom..");
+  config_t confE;
+  EEPROM_readAnything(1, confE); 
+  if(confE.signature!=FREEIMU_EEPROM_SIGNATURE){
+    conf.signature=FREEIMU_EEPROM_SIGNATURE;
+    Serial.println("No valid eerpom data. Using default values");
+  }else{
+    memcpy(&conf, &confE, sizeof(conf));
+  }
+  Serial.print("DEC: ");   Serial.println(conf.declination);
+  Serial.print("ALG: ");   Serial.println(conf.align);
+
   //setup timers
   FlexiTimer2::set(100, calculate); // 100ms period
   FlexiTimer2::start();
   pinMode(13, OUTPUT);
-  mghList.reset();
+  mghList.reset();  
 }
 
 void freeboard_outputRaw()
 {
     output_angles();
-/*    Serial.print(yaw); Serial.print(",");
+/*  Serial.print(yaw); Serial.print(",");
     Serial.print(pitch); Serial.print(",");
     Serial.print(roll);  Serial.println();
     */
@@ -102,7 +122,7 @@ void freeboard_loop() {
       if (interval % 5 == 0) {
   	    //do every 500ms
            float h = degrees(mghList.getTotalAverage());
-           h = h + align;
+           h = h + conf.align;
             if(h<0.0){
               h=(360.0 + h);
             }
@@ -120,11 +140,14 @@ void freeboard_loop() {
    execute = false;
   }
 
+/*
+
+*/
 void freeboard_process(char * s, char parser) {
 	//if (DEBUG) Serial.print("Process str:");
 	//if (DEBUG) Serial.println(s);
 	char *cmd = strtok(s, ",");
-	while (cmd != NULL && strlen(cmd) > 3) {
+	while (cmd != NULL && strlen(cmd) >= 3) {
 		//starts with # its a command
 		//if (DEBUG) Serial.print("Process incoming..l=");
 		//if (DEBUG) Serial.print(strlen(cmd));
@@ -141,9 +164,10 @@ void freeboard_process(char * s, char parser) {
 			char valArray[l - 4];
 			memcpy(valArray, &cmd[5], l - 5);
 			valArray[l - 5] = '\0';
-			//if (DEBUG) Serial.print(key);
-			//if (DEBUG) Serial.print(" = ");
-			//if (DEBUG) Serial.println(valArray);
+			if (DEBUG) Serial.print(key);
+			if (DEBUG) Serial.print("=");
+			if (DEBUG) Serial.println(valArray);
+
                        //used for calibration
                         if (strcmp(key, RAW_OUT) == 0) {
                            raw_out=true;
@@ -156,6 +180,8 @@ void freeboard_process(char * s, char parser) {
                         }
                         if (strcmp(key, FREEBOARD_MODE_OFF) == 0) {
                            output_mode = OUTPUT__MODE_ANGLES;
+                           Serial.println("Changing to razor mode");
+                           return;
                         }                        
                         if (strcmp(key, FREEBOARD_OFF) == 0) {
                            freeboard_out=false;
@@ -166,8 +192,12 @@ void freeboard_process(char * s, char parser) {
                         if (strcmp(key, NMEA_OFF) == 0) {
                            nmea_out=false;
                         }
+                        
                         //save calibration
                         if (strcmp(key, CAL_SAVE) == 0) {
+                            EEPROM.write(FREEIMU_EEPROM_BASE, FREEIMU_EEPROM_SIGNATURE);
+                            EEPROM_writeAnything(1, conf);
+                          /*
                             const uint8_t eepromsize = sizeof(float) * 6 + sizeof(int) * 6;
                             
                             while(Serial.available() < eepromsize){
@@ -177,12 +207,13 @@ void freeboard_process(char * s, char parser) {
                             for(uint8_t i = 1; i<(eepromsize + 1); i++) {
                               EEPROM.write(FREEIMU_EEPROM_BASE + i, (char) Serial.read());
                             }
+                            */
                             //my3IMU.calLoad(); // reload calibration
                             // toggle LED after calibration store.
                             digitalWrite(13, HIGH);
                             delay(1000);
                             digitalWrite(13, LOW);
-                            Serial.println("Saved calibration to EEPROM");
+                            Serial.println("Saved calibration data to EEPROM");
                         }
                         
 		} else {
@@ -196,48 +227,17 @@ void freeboard_process(char * s, char parser) {
 			if (DEBUG) Serial.println(valArray);
 			
 			if (strcmp(key, DECL) == 0){
-			    declination= atof(valArray);
+			    conf.declination= atof(valArray);
+                            Serial.print("Set declination = "); Serial.println(conf.declination);
 			}else if (strcmp(key, ALIGN) == 0){
-			    align = atof(valArray);
+			    conf.align = atof(valArray);
+                            Serial.print("Set align = "); Serial.println(conf.align);
 			}
 
                         //Dump calibration
                         if(strcmp(key, CAL_OUT) == 0){
-                           //my3IMU.magn.calibrate(1,75);
-                           /*
-                          Serial.print("acc offset: ");
-                          Serial.print(my3IMU.acc_off_x);
-                          Serial.print(",");
-                          Serial.print(my3IMU.acc_off_y);
-                          Serial.print(",");
-                          Serial.print(my3IMU.acc_off_z);
-                          Serial.print("\n");
-                          
-                          Serial.print("magn offset: ");
-                          Serial.print(my3IMU.magn_off_x);
-                          Serial.print(",");
-                          Serial.print(my3IMU.magn_off_y);
-                          Serial.print(",");
-                          Serial.print(my3IMU.magn_off_z);
-                          Serial.print("\n");
-                          
-                          Serial.print("acc scale: ");
-                          Serial.print(my3IMU.acc_scale_x);
-                          Serial.print(",");
-                          Serial.print(my3IMU.acc_scale_y);
-                          Serial.print(",");
-                          Serial.print(my3IMU.acc_scale_z);
-                          Serial.print("\n");
-                          
-                          Serial.print("magn scale: ");
-                          Serial.print(my3IMU.magn_scale_x);
-                          Serial.print(",");
-                          Serial.print(my3IMU.magn_scale_y);
-                          Serial.print(",");
-                          Serial.print(my3IMU.magn_scale_z);
-                          Serial.print("\n");
-                        */
-                    }
+                          Serial.println("Use the command  #FBF to exit this mode and calibrate with #on comamnd");
+                        }
 		}
 		//next token
 		cmd = strtok(NULL, ",");
@@ -342,12 +342,12 @@ void printNmeaMag(float h){
 	str.print(cs, HEX); // Assemble the final message and send it out the serial port
 	Serial.println(magSentence);
         //do HDT if we have a declination
-        if(declination!=0.0){
+        if(conf.declination!=0.0){
             //print HDT
             char hdtSentence [45];
                 PString str(hdtSentence, sizeof(hdtSentence));
         	str.print("$HCHDT,");
-                float d = h-declination;
+                float d = h-conf.declination;
                 if(d>360.0) d -=360.0;
                 if(d<0.0) d +=360.0;
                 char dBuf[7];
@@ -385,7 +385,7 @@ void printNmeaMag(float h){
                 
                 */
                 char hdgSentence [35];
-                float x = (abs(declination));
+                float x = (abs(conf.declination));
                 char xBuf[7];
                 dtostrf(x, 3, 1, xBuf);
                 //x=((int)(x*10))*0.1;
@@ -394,13 +394,13 @@ void printNmeaMag(float h){
                 hdgStr.print(h);//mag heading 
         	hdgStr.print(",");
                 hdgStr.print(xBuf);//declination
-                if(declination<0.0){
+                if(conf.declination<0.0){
                   hdgStr.print(",E,");
                 }else{
                   hdgStr.print(",W,");
                 }
                 hdgStr.print(xBuf);//declination
-                if(declination<0.0){
+                if(conf.declination<0.0){
                   hdgStr.print(",E*");
                 }else{
                   hdgStr.print(",W*");
